@@ -22,6 +22,7 @@ export default class UI extends Phaser.Scene {
         this.gemsLabel = this.add.text(10, 10, 'Gems: 0', {
             fontSize: '32px'
         });
+
         
         events.on('gem-collided', () => {
             this.gemsCollected++;

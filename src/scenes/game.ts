@@ -4,7 +4,7 @@ import { sharedInstance as events } from "../helpers/eventCenter";
 export default class Game extends Phaser.Scene {
 
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-    private character?: Phaser.Physics.Matter.Sprite;
+    private gameboy?: Phaser.Physics.Matter.Sprite;
     private isTouchingGround:boolean = false;
 
     constructor() {
@@ -17,17 +17,19 @@ export default class Game extends Phaser.Scene {
     }
 
     preload(){
-        this.load.atlas('character', 'assets/character.png', 'assets/character.json');
+        this.load.atlas('gameboy', 'assets/character.png', 'assets/character.json');
+        this.load.atlas('zombie', 'assets/characters/zombie.png', 'assets/characters/zombie.json');
         this.load.image('world', 'assets/platformPack_tilesheet.png');
         this.load.image('gem', 'assets/items/platformPack_item007.png');
+        this.load.image('fire', 'assets/items/platformPack_item004.png');
         this.load.tilemapTiledJSON('worldmap', 'assets/world.json');
-
     }
 
     create(){
         
         const { width, height } = this.scale;  // width and height of the scene
-        this.createCharacterAnimations();
+        this.createGameboyAnimations();
+        this.createZombieAnimations();
         
         const map = this.make.tilemap({key: 'worldmap'});
         const tileset = map.addTilesetImage('platformPack_tilesheet', 'world');
@@ -43,12 +45,13 @@ export default class Game extends Phaser.Scene {
             const {x=0, y=0, name} = obj;
             switch(name){
                 case 'spawn':
-                    this.character = this.matter.add.sprite(x, y, 'character')
-                        .play('character-idle')
+                    this.gameboy = this.matter.add.sprite(x, y, 'gameboy')
+                        .play('gameboy-idle')
                         .setFixedRotation();
 
+                    this.matter.add.sprite(x,y,'zombie').play('zombie-walk');
 
-                    this.character.setOnCollide((data: MatterJS.ICollisionPair) => {
+                    this.gameboy.setOnCollide((data: MatterJS.ICollisionPair) => {
                         const bodyA = data.bodyA as MatterJS.BodyType;
                         const bodyB = data.bodyB as MatterJS.BodyType;
                         const gameObjectA = bodyA.gameObject
@@ -62,15 +65,21 @@ export default class Game extends Phaser.Scene {
                             return;
                         }
 
-                        const sprite = gameObjectB as Phaser.Physics.Matter.Sprite
-                        if (sprite.getData('type') == 'star') {
-                            console.log('collided with star');
+                        const spriteA = gameObjectA as Phaser.Physics.Matter.Sprite
+                        if (spriteA.getData('type') == 'gem') {
+                            console.log('collided with gem');
                             events.emit('gem-collided');
-                            sprite.destroy();
+                            spriteA.destroy();
+                        }
+                        const spriteB = gameObjectB as Phaser.Physics.Matter.Sprite
+                        if (spriteB.getData('type') == 'gem') {
+                            console.log('collided with gem');
+                            events.emit('gem-collided');
+                            spriteB.destroy();
                         }
                         
                     });
-                    this.cameras.main.startFollow(this.character);
+                    this.cameras.main.startFollow(this.gameboy);
                     break;
                 case 'gem':
                     const gem = this.matter.add.sprite(x, y, 'gem', undefined, {
@@ -79,7 +88,7 @@ export default class Game extends Phaser.Scene {
                     });
                     gem.setIgnoreGravity(true);
                     gem.setBounce(1);
-                    gem.setData('type', 'star');
+                    gem.setData('type', 'gem');
                     break;
             }
         });
@@ -87,43 +96,57 @@ export default class Game extends Phaser.Scene {
     }
 
     update(){
-        if (!this.character)
+        if (!this.gameboy)
             return;
         const speed = 5;
-        const jump = 10;
+        const jumpSpeed = 10;
+        const shootSpeed = 15;
         if (this.cursors.left.isDown){
-            this.character.setVelocityX(-speed);
-            this.character.flipX = true;
-            this.character.play('character-walk', true);
+            this.gameboy.setVelocityX(-speed);
+            this.gameboy.flipX = true;
+            this.gameboy.play('gameboy-walk', true);
         }
         else if (this.cursors.right.isDown){
-            this.character.setVelocityX(speed);
-            this.character.flipX = false;
-            this.character.play('character-walk', true);
+            this.gameboy.setVelocityX(speed);
+            this.gameboy.flipX = false;
+            this.gameboy.play('gameboy-walk', true);
         }
         else{
-            this.character.setVelocityX(0);
-            this.character.play('character-idle', true);
+            this.gameboy.setVelocityX(0);
+            this.gameboy.play('gameboy-idle', true);
 
         }
         const spaceJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.space);
         if (this.cursors.space.isDown && spaceJustPressed && this.isTouchingGround){
-            this.character.setVelocityY(-jump);
+            this.gameboy.setVelocityY(-jumpSpeed);
             this.isTouchingGround = false;
+        }
+        
+        const shiftJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.shift);
+        if(this.cursors.shift.isDown && shiftJustPressed){
+            const gem = this.matter.add.sprite(this.gameboy.getCenter().x, this.gameboy.getCenter().y, 'fire', undefined, {
+                
+                isSensor: true
+            });
+            gem.setIgnoreGravity(true);
+            gem.setFrictionAir(0.5);
+            gem.setBounce(1);
+            gem.setVelocityX(this.gameboy.flipX? -shootSpeed : shootSpeed);
+            gem.setData('type', 'fire');
         }
 
     }
 
-    private createCharacterAnimations(){
+    private createGameboyAnimations(){
         this.anims.create({
-            key: 'character-idle',
-            frames: [{key:'character', frame: 'platformChar_walk0.png'}]
+            key: 'gameboy-idle',
+            frames: [{key:'gameboy', frame: 'platformChar_walk0.png'}]
         });
 
         this.anims.create({
-            key: 'character-walk',
+            key: 'gameboy-walk',
             frameRate: 5,
-            frames: this.anims.generateFrameNames('character', {
+            frames: this.anims.generateFrameNames('gameboy', {
                 start: 0,
                 end: 2,
                 prefix: 'platformChar_walk',
@@ -131,5 +154,25 @@ export default class Game extends Phaser.Scene {
             } ),
             repeat:-1
         })
+    }
+
+    private createZombieAnimations(){
+        this.anims.create({
+            key: 'zombie-idle',
+            frames: [{key:'zombie', frame: 'zombie_idle.png'}]
+        });
+
+        this.anims.create({
+            key: 'zombie-walk',
+            frameRate: 5,
+            frames: this.anims.generateFrameNames('zombie', {
+                start: 1,
+                end: 2,
+                prefix: 'zombie_walk',
+                suffix: '.png'
+            } ),
+            repeat:-1
+        })
+        
     }
 }
