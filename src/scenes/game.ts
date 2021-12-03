@@ -5,7 +5,6 @@ export default class Game extends Phaser.Scene {
 
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private gameboy?: Phaser.Physics.Matter.Sprite;
-    private isTouchingGround:boolean = false;
 
     constructor() {
         super('game');
@@ -28,26 +27,25 @@ export default class Game extends Phaser.Scene {
     create(){
         
         const { width, height } = this.scale;  // width and height of the scene
-        this.createGameboyAnimations();
+
+        this.createGameboyAnimations();   //Generate animations
         this.createZombieAnimations();
         
-        const map = this.make.tilemap({key: 'worldmap'});
+        // Generate world map
+        const map = this.make.tilemap({key: 'worldmap'});  
         const tileset = map.addTilesetImage('platformPack_tilesheet', 'world');
-        
         const ground = map.createLayer('ground', tileset);
         ground.setCollisionByProperty({collides: true});
-        
         this.matter.world.convertTilemapLayer(ground);
         
+        // Objects coming from the tile map
         const objectsLayer = map.getObjectLayer('objects');
-
         objectsLayer.objects.forEach(obj => {
             const {x=0, y=0, name} = obj;
             switch(name){
                 case 'spawn':
                     this.gameboy = this.matter.add.sprite(x, y, 'gameboy')
-                        .play('gameboy-idle')
-                        .setFixedRotation();
+                        .play('gameboy-idle');
 
                     this.matter.add.sprite(x,y,'zombie').play('zombie-walk');
 
@@ -59,23 +57,15 @@ export default class Game extends Phaser.Scene {
 
                         if (!gameObjectA || !gameObjectB)
                             return;
+
                         if (gameObjectA instanceof Phaser.Physics.Matter.TileBody){
-                            console.log('touching ground')
-                            this.isTouchingGround = true;
                             return;
                         }
 
-                        const spriteA = gameObjectA as Phaser.Physics.Matter.Sprite
-                        if (spriteA.getData('type') == 'gem') {
+                        const spriteA = gameObjectA as Phaser.Physics.Matter.Sprite;
+                        const spriteB = gameObjectB as Phaser.Physics.Matter.Sprite;
+                        if (spriteA.getData('type') == 'gem' || spriteB.getData('type') == 'gem') {
                             console.log('collided with gem');
-                            events.emit('gem-collided');
-                            spriteA.destroy();
-                        }
-                        const spriteB = gameObjectB as Phaser.Physics.Matter.Sprite
-                        if (spriteB.getData('type') == 'gem') {
-                            console.log('collided with gem');
-                            events.emit('gem-collided');
-                            spriteB.destroy();
                         }
                         
                     });
@@ -87,7 +77,6 @@ export default class Game extends Phaser.Scene {
                         isSensor: true
                     });
                     gem.setIgnoreGravity(true);
-                    gem.setBounce(1);
                     gem.setData('type', 'gem');
                     break;
             }
@@ -98,43 +87,19 @@ export default class Game extends Phaser.Scene {
     update(){
         if (!this.gameboy)
             return;
-        const speed = 5;
-        const jumpSpeed = 10;
-        const shootSpeed = 15;
-        if (this.cursors.left.isDown){
-            this.gameboy.setVelocityX(-speed);
-            this.gameboy.flipX = true;
-            this.gameboy.play('gameboy-walk', true);
-        }
-        else if (this.cursors.right.isDown){
-            this.gameboy.setVelocityX(speed);
-            this.gameboy.flipX = false;
-            this.gameboy.play('gameboy-walk', true);
+
+        if (this.cursors.right.isDown){
+            this.gameboy.setVelocityX(5);
         }
         else{
             this.gameboy.setVelocityX(0);
             this.gameboy.play('gameboy-idle', true);
 
         }
-        const spaceJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.space);
-        if (this.cursors.space.isDown && spaceJustPressed && this.isTouchingGround){
-            this.gameboy.setVelocityY(-jumpSpeed);
-            this.isTouchingGround = false;
-        }
-        
-        const shiftJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.shift);
-        if(this.cursors.shift.isDown && shiftJustPressed){
-            const gem = this.matter.add.sprite(this.gameboy.getCenter().x, this.gameboy.getCenter().y, 'fire', undefined, {
-                
-                isSensor: true
-            });
-            gem.setIgnoreGravity(true);
-            gem.setFrictionAir(0.5);
-            gem.setBounce(1);
-            gem.setVelocityX(this.gameboy.flipX? -shootSpeed : shootSpeed);
-            gem.setData('type', 'fire');
-        }
+        const spaceJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.space);  // Debounced use of space bar
+        if (this.cursors.space.isDown && spaceJustPressed){
 
+        }
     }
 
     private createGameboyAnimations(){
