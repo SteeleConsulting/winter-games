@@ -1,0 +1,36 @@
+{"frames": [
+
+{
+	"filename": "platformChar_walk0.png",
+	"frame": {"x":159,"y":1,"w":68,"h":67},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":14,"y":29,"w":68,"h":67},
+	"sourceSize": {"w":96,"h":96}
+},
+{
+	"filename": "platformChar_walk1.png",
+	"frame": {"x":1,"y":1,"w":80,"h":69},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":8,"y":27,"w":80,"h":69},
+	"sourceSize": {"w":96,"h":96}
+},
+{
+	"filename": "platformChar_walk2.png",
+	"frame": {"x":83,"y":1,"w":74,"h":67},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":11,"y":29,"w":74,"h":67},
+	"sourceSize": {"w":96,"h":96}
+}],
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "character.png",
+	"format": "RGBA8888",
+	"size": {"w":228,"h":71},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:049c2515b84b3df7525becd430a1e745:3b13119601dca9308ea7c0de5cc9831e:42e475aa4a03af306bdc7acb5ff91d19$"
+}
+}
