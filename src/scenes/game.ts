@@ -43,13 +43,14 @@ export default class Game extends Phaser.Scene {
 
         objectsLayer.objects.forEach(obj => {
             const {x=0, y=0, name} = obj;
+
+        var zombie = this.matter.add.sprite(x,y,'zombie').play('zombie-walk');
+        zombie.setData('type', 'zombie');
             switch(name){
                 case 'spawn':
                     this.gameboy = this.matter.add.sprite(x, y, 'gameboy')
                         .play('gameboy-idle')
                         .setFixedRotation();
-
-                    this.matter.add.sprite(x,y,'zombie').play('zombie-walk');
 
                     this.gameboy.setOnCollide((data: MatterJS.ICollisionPair) => {
                         const bodyA = data.bodyA as MatterJS.BodyType;
@@ -76,6 +77,11 @@ export default class Game extends Phaser.Scene {
                             console.log('collided with gem');
                             events.emit('gem-collided');
                             spriteB.destroy();
+                        }
+
+                        if (spriteB.getData('type') == 'zombie' || spriteA.getData('type') == 'zombie') {
+                            console.log('collided with zombie');
+                            // add health damage here
                         }
                         
                     });
@@ -124,15 +130,32 @@ export default class Game extends Phaser.Scene {
         
         const shiftJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.shift);
         if(this.cursors.shift.isDown && shiftJustPressed){
-            const gem = this.matter.add.sprite(this.gameboy.getCenter().x, this.gameboy.getCenter().y, 'fire', undefined, {
-                
+            const gem = this.matter.add.sprite(this.gameboy.getCenter().x, this.gameboy.getCenter().y-20, 'fire', undefined, {
                 isSensor: true
             });
-            gem.setIgnoreGravity(true);
-            gem.setFrictionAir(0.5);
+            gem.setIgnoreGravity(false);
+            gem.setFrictionAir(0.05);
             gem.setBounce(1);
             gem.setVelocityX(this.gameboy.flipX? -shootSpeed : shootSpeed);
             gem.setData('type', 'fire');
+            gem.setOnCollide((data: MatterJS.ICollisionPair) => {
+                const bodyA = data.bodyA as MatterJS.BodyType;
+                const bodyB = data.bodyB as MatterJS.BodyType;
+                const spriteA = bodyA.gameObject as Phaser.Physics.Matter.Sprite
+                const spriteB = bodyB.gameObject as Phaser.Physics.Matter.Sprite
+
+                if (!spriteA.getData || !spriteB.getData)
+                    return;
+                
+                if (spriteA?.getData('type') == 'zombie') {
+                    console.log('collided with zombie');
+                    spriteA.destroy();
+                }
+                if (spriteB?.getData('type') == 'zombie') {
+                    console.log('collided with zombie');
+                    spriteB.destroy();
+                }
+            });
         }
 
     }
