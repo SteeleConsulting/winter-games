@@ -186,12 +186,14 @@ export default class Game extends Phaser.Scene {
                 if (spriteA?.getData('type') == 'zombie') {
                     console.log('collided with zombie');
                     spriteA.play('zombie-hurt');
+                    spriteB.destroy();
                     setTimeout((spriteA) => {spriteA.destroy()}, 300, spriteA);
                     this.explosion.play();
                 }
                 if (spriteB?.getData('type') == 'zombie') {
                     console.log('collided with zombie');
                     spriteB.play('zombie-hurt');
+                    spriteA.destroy();
                     setTimeout((spriteB) => {spriteB.destroy()}, 300, spriteB);
                     this.explosion.play();
                 }
