@@ -16,6 +16,9 @@ const config: Phaser.Types.Core.GameConfig = {
             }
         }
     },
+    audio: {
+        disableWebAudio: true
+    },
     scene: [Game, UI]
 };
 

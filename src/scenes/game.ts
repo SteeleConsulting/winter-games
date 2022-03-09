@@ -12,13 +12,17 @@ export default class Game extends Phaser.Scene {
     private shootSpeed = 15;
     private scrollSpeed = 1.5;
 
+    private laser!: Phaser.Sound.BaseSound;
+    private explosion!:  Phaser.Sound.BaseSound;
+    private powerup!: Phaser.Sound.BaseSound;
+
     constructor() {
         super('game');
     }
 
     init() {
 		this.cursors = this.input.keyboard.createCursorKeys();
-        this.input.addPointer(1);  // pointer used for touch detection
+        // this.input.addPointer(1);  // pointer used for touch detection
         this.scene.launch('ui');
     }
 
@@ -29,13 +33,16 @@ export default class Game extends Phaser.Scene {
         this.load.image('gem', 'assets/items/platformPack_item007.png');
         this.load.image('fire', 'assets/items/platformPack_item004.png');
         this.load.tilemapTiledJSON('worldmap', 'assets/world.json');
+        this.load.audio('laser', ['assets/sounds/laser.wav']);
+        this.load.audio('explosion', ['assets/sounds/explosion.mp3']);
+        this.load.audio('powerup', ['assets/sounds/powerup.wav']);
     }
 
     create(){
-        
         const { width, height } = this.scale;  // width and height of the scene
         this.createGameboyAnimations();
         this.createZombieAnimations();
+
         
         const map = this.make.tilemap({key: 'worldmap'});
         const tileset = map.addTilesetImage('platformPack_tilesheet', 'world');
@@ -77,20 +84,22 @@ export default class Game extends Phaser.Scene {
                         }
 
                         const spriteA = gameObjectA as Phaser.Physics.Matter.Sprite
-                        if (spriteA.getData('type') == 'gem') {
+                        if (spriteA?.getData('type') == 'gem') {
                             console.log('collided with gem');
                             events.emit('gem-collided');
                             spriteA.destroy();
+                            this.powerup.play();
                         }
                         const spriteB = gameObjectB as Phaser.Physics.Matter.Sprite
-                        if (spriteB.getData('type') == 'gem') {
+                        if (spriteB?.getData('type') == 'gem') {
                             console.log('collided with gem');
                             events.emit('gem-collided'); 
                             spriteB.destroy();
+                            this.powerup.play();
                         }
 
-                        if (spriteB.getData('type') == 'zombie' || spriteA.getData('type') == 'zombie') {
-                            
+                        if (spriteB?.getData('type') == 'zombie' || spriteA?.getData('type') == 'zombie') {
+                            console.log('taking damage');
                             events.emit('zombie-collided');
                             this.gameboy?.setVelocityY(-3);
                             setTimeout((gb) => gb.setVelocityX(-15), 10, this.gameboy);
@@ -110,6 +119,10 @@ export default class Game extends Phaser.Scene {
                     break;
             }
         });
+
+        this.explosion = this.sound.add('explosion');
+        this.laser = this.sound.add('laser'); 
+        this.powerup = this.sound.add('powerup');
 
     }
 
@@ -155,6 +168,7 @@ export default class Game extends Phaser.Scene {
             const gem = this.matter.add.sprite(this.gameboy.getCenter().x, this.gameboy.getCenter().y-20, 'fire', undefined, {
                 isSensor: true
             });
+            this.laser.play();
             gem.setIgnoreGravity(false);
             gem.setFrictionAir(0.0);
             gem.setBounce(1);
@@ -173,11 +187,13 @@ export default class Game extends Phaser.Scene {
                     console.log('collided with zombie');
                     spriteA.play('zombie-hurt');
                     setTimeout((spriteA) => {spriteA.destroy()}, 300, spriteA);
+                    this.explosion.play();
                 }
                 if (spriteB?.getData('type') == 'zombie') {
                     console.log('collided with zombie');
                     spriteB.play('zombie-hurt');
                     setTimeout((spriteB) => {spriteB.destroy()}, 300, spriteB);
+                    this.explosion.play();
                 }
             });
         }
