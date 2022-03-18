@@ -1,16 +1,18 @@
 import Phaser from "phaser";
-import { sharedInstance as events } from "../helpers/eventCenter";
+import { sharedInstance as events } from "../helpers/eventCenter";    // this is the shared events emitter
 
 export default class Game extends Phaser.Scene {
 
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-    private gameboy?: Phaser.Physics.Matter.Sprite;
-    private isTouchingGround:boolean = false;
+    private spaceship?: Phaser.Physics.Matter.Sprite;
+    private isTouchingGround: boolean = false;
+    private upgraded: boolean = false;
 
     private speed = 5;
-    private jumpSpeed = 10;
-    private shootSpeed = 15;
-    private scrollSpeed = 1.5;
+    private normalSpeed = 5;
+    private turboSpeed = 10;
+    private shootSpeed = -15;
+    private scrollSpeed = -1;
 
     private laser!: Phaser.Sound.BaseSound;
     private explosion!:  Phaser.Sound.BaseSound;
@@ -21,27 +23,36 @@ export default class Game extends Phaser.Scene {
     }
 
     init() {
-		this.cursors = this.input.keyboard.createCursorKeys();
-        // this.input.addPointer(1);  // pointer used for touch detection
-        this.scene.launch('ui');
+		this.cursors = this.input.keyboard.createCursorKeys();  // setup keyboard input
+        this.scene.launch('ui');   // add the UI scene
     }
 
     preload(){
-        this.load.atlas('gameboy', 'assets/character.png', 'assets/character.json');
-        this.load.atlas('zombie', 'assets/characters/zombie.png', 'assets/characters/zombie.json');
+        this.load.image('star', 'assets/star2.png');
+        this.load.atlas('explosion', 'assets/explosion.png', 'assets/explosion.json');
+
+        //this loads a whole tileset, check assets/space-shooter/space-shooter-tileset.json for individual image names
+        this.load.atlas('space', 'assets/space-shooter/space-shooter-tileset.png', 'assets/space-shooter/space-shooter-tileset.json');  
+
         this.load.image('world', 'assets/platformPack_tilesheet.png');
-        this.load.image('gem', 'assets/items/platformPack_item007.png');
-        this.load.image('fire', 'assets/items/platformPack_item004.png');
         this.load.tilemapTiledJSON('worldmap', 'assets/world.json');
+
         this.load.audio('laser', ['assets/sounds/laser.wav']);
         this.load.audio('explosion', ['assets/sounds/explosion.mp3']);
         this.load.audio('powerup', ['assets/sounds/powerup.wav']);
+
     }
 
     create(){
         const { width, height } = this.scale;  // width and height of the scene
-        this.createGameboyAnimations();
-        this.createZombieAnimations();
+
+        // Add random stars background
+        var bg = this.add.group({ key: 'star', frameQuantity: 300  });
+        var rect = new Phaser.Geom.Rectangle(0, -4 * height, width, 5 * height);
+        Phaser.Actions.RandomRectangle(bg.getChildren(), rect);
+
+        this.createSpaceshipAnimations();
+        this.createEnemyAnimations();
 
         
         const map = this.make.tilemap({key: 'worldmap'});
@@ -56,60 +67,60 @@ export default class Game extends Phaser.Scene {
         this.cameras.main.scrollY = 200;
 
         objectsLayer.objects.forEach(obj => {
-            const {x=0, y=0, name} = obj;
+            const {x=0, y=0, name} = obj;   // get the coordinates and name of the object from the tile map
 
-            var zombie = this.matter.add.sprite(x,y,'zombie').play('zombie-walk');
-            zombie.setFixedRotation();
-            zombie.setData('type', 'zombie');
-            setInterval(() => {if (zombie != null && zombie.active){zombie.setVelocityX(Math.random()>0.5?5:-5);zombie.setVelocityY(Math.random()>0.5?5:-5);}}, 200, zombie); // random movement of enemies
+            // add an enemy at every object in the tile map
+            var enemy = this.matter.add.sprite(x,y,'space').play('enemy-idle');
+            enemy.setFixedRotation();
+            enemy.setData('type', 'enemy');
+            setInterval(() => {if (enemy != null && enemy.active){enemy.setVelocityX(Math.random()>0.5?5:-5);enemy.setVelocityY(Math.random()>0.5?5:-5);}}, 200, enemy); // random movement of enemies
+
+            // find where the spawn and gem objects are in the tile map and add sprites accordingly 
             switch(name){
                 case 'spawn':
-                    this.gameboy = this.matter.add.sprite(x, y, 'gameboy')
-                        .play('gameboy-idle')
+                    this.spaceship = this.matter.add.sprite(x, y, 'space')
+                        .play('spaceship-idle')
                         .setFixedRotation();
-                    this.gameboy.setFrictionStatic(0);
+                    this.spaceship.setFrictionStatic(0);
 
-                    this.gameboy.setOnCollide((data: MatterJS.ICollisionPair) => {
-                        const bodyA = data.bodyA as MatterJS.BodyType;
-                        const bodyB = data.bodyB as MatterJS.BodyType;
-                        const gameObjectA = bodyA.gameObject
-                        const gameObjectB = bodyB.gameObject
+                    this.spaceship.setOnCollide((data: MatterJS.ICollisionPair) => {
+                        const spriteA = (data.bodyA as MatterJS.BodyType).gameObject as Phaser.Physics.Matter.Sprite
+                        const spriteB = (data.bodyB as MatterJS.BodyType).gameObject as Phaser.Physics.Matter.Sprite
 
-                        if (!gameObjectA || !gameObjectB)
+                        if (!spriteA?.getData || !spriteB?.getData)
                             return;
-                        if (gameObjectA instanceof Phaser.Physics.Matter.TileBody){
-                            console.log('touching ground')
+                        if ((data.bodyA as MatterJS.BodyType).gameObject instanceof Phaser.Physics.Matter.TileBody){
+                            console.log('touching tile');
                             this.isTouchingGround = true;
+                            this.scrollSpeed = 0;
+                            this.spaceship?.play('spaceship-explode');
                             return;
                         }
-
-                        const spriteA = gameObjectA as Phaser.Physics.Matter.Sprite
                         if (spriteA?.getData('type') == 'gem') {
                             console.log('collided with gem');
                             events.emit('gem-collided');
                             spriteA.destroy();
                             this.powerup.play();
+                            this.upgraded = true;
                         }
-                        const spriteB = gameObjectB as Phaser.Physics.Matter.Sprite
                         if (spriteB?.getData('type') == 'gem') {
                             console.log('collided with gem');
                             events.emit('gem-collided'); 
                             spriteB.destroy();
                             this.powerup.play();
+                            this.upgraded = true;
                         }
-
-                        if (spriteB?.getData('type') == 'zombie' || spriteA?.getData('type') == 'zombie') {
+                        if (spriteB?.getData('type') == 'enemy' || spriteA?.getData('type') == 'enemy') {
                             console.log('taking damage');
-                            events.emit('zombie-collided');
-                            this.gameboy?.setVelocityY(-3);
-                            setTimeout((gb) => gb.setVelocityX(-15), 10, this.gameboy);
+                            events.emit('enemy-collided');
+                            this.spaceship?.setVelocityY(-3);
+                            setTimeout((spaceship) => spaceship.setVelocityX(-15), 10, this.spaceship);
                         }
                         
                     });
-                    // this.cameras.main.startFollow(this.gameboy);      // This is the old camera
                     break;
                 case 'gem':
-                    const gem = this.matter.add.sprite(x, y, 'gem', undefined, {
+                    const gem = this.matter.add.sprite(x, y, 'space', 'Power-ups/powerupBlue_bolt.png', {
                         isStatic: true,
                         isSensor: true
                     });
@@ -120,130 +131,155 @@ export default class Game extends Phaser.Scene {
             }
         });
 
+        // Sounds are loaded into memory here
+        this.powerup = this.sound.add('powerup');
         this.explosion = this.sound.add('explosion');
         this.laser = this.sound.add('laser'); 
-        this.powerup = this.sound.add('powerup');
 
+        this.cameras.main.fadeIn(2000);   // just a nice intro effect
     }
 
     update(){
-        if (!this.gameboy)
+        if (!this.spaceship)   // This checks if the spaceship has been created yet
             return;
 
-        this.cameras.main.scrollX += this.scrollSpeed;
+        // move camera up
+        this.cameras.main.scrollY += this.scrollSpeed;
+
+        // bottom boundry 
+        var currentYBoundry = this.cameras.main.getWorldPoint(0,950).y
+        if (currentYBoundry < this.spaceship.y) {
+            this.spaceship.y = currentYBoundry;
+        }
+
+        // handle keyboard input
         if (this.cursors.left.isDown){
-            this.gameboy.setVelocityX(-this.speed);
-            this.gameboy.flipX = true;
-            this.gameboy.play('gameboy-walk', true);
+            this.spaceship.setVelocityX(-this.speed);
+            if (this.spaceship.x < 50) this.spaceship.setX(50);    // left boundry
+            this.spaceship.flipX = true;
         }
         else if (this.cursors.right.isDown){
-            this.gameboy.setVelocityX(this.speed);
-            this.gameboy.flipX = false;
-            this.gameboy.play('gameboy-walk', true);
+            this.spaceship.setVelocityX(this.speed);
+            if (this.spaceship.x > 1550) this.spaceship.setX(1550);    // right boundry
+            this.spaceship.flipX = false;
         }
         else{
-            this.gameboy.setVelocityX(0);
-            this.gameboy.play('gameboy-idle', true);
+            this.spaceship.setVelocityX(0);
         }
         if (this.cursors.up.isDown){
-            this.gameboy.setVelocityY(-this.speed);
-            this.gameboy.play('gameboy-walk', true);
+            this.spaceship.setVelocityY(-this.speed);
         }
         else if (this.cursors.down.isDown){
-            this.gameboy.setVelocityY(this.speed);
-            this.gameboy.play('gameboy-walk', true);
+            this.spaceship.setVelocityY(this.speed);
         }
         else{
-            this.gameboy.setVelocityY(0);
-            this.gameboy.play('gameboy-idle', true);
+            this.spaceship.setVelocityY(0);
         }
-        const spaceJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.space);
-        if (this.cursors.space.isDown && spaceJustPressed && this.isTouchingGround){
-            this.gameboy.setVelocityY(-this.jumpSpeed);
-            this.isTouchingGround = false;
+
+        // speed up map scroll speed
+        if (this.cursors.space.isDown){
+            this.scrollSpeed = -3;
+        }
+        else {
+            this.scrollSpeed = -1;
         }
         
-        const shiftJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.shift);
+        // fire lasers
+        const shiftJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.shift);   // this is to make sure one laser gets fire with every key press
         if(this.cursors.shift.isDown && shiftJustPressed){
-            const gem = this.matter.add.sprite(this.gameboy.getCenter().x, this.gameboy.getCenter().y-20, 'fire', undefined, {
-                isSensor: true
-            });
-            this.laser.play();
-            gem.setIgnoreGravity(false);
-            gem.setFrictionAir(0.0);
-            gem.setBounce(1);
-            gem.setVelocityX(this.gameboy.flipX? -this.shootSpeed : this.shootSpeed);
-            gem.setData('type', 'fire');
-            gem.setOnCollide((data: MatterJS.ICollisionPair) => {
-                const bodyA = data.bodyA as MatterJS.BodyType;
-                const bodyB = data.bodyB as MatterJS.BodyType;
-                const spriteA = bodyA.gameObject as Phaser.Physics.Matter.Sprite
-                const spriteB = bodyB.gameObject as Phaser.Physics.Matter.Sprite
 
-                if (!spriteA.getData || !spriteB.getData)
-                    return;
-                
-                if (spriteA?.getData('type') == 'zombie') {
-                    console.log('collided with zombie');
-                    spriteA.play('zombie-hurt');
-                    spriteB.destroy();
-                    setTimeout((spriteA) => {spriteA.destroy()}, 300, spriteA);
-                    this.explosion.play();
-                }
-                if (spriteB?.getData('type') == 'zombie') {
-                    console.log('collided with zombie');
-                    spriteB.play('zombie-hurt');
-                    spriteA.destroy();
-                    setTimeout((spriteB) => {spriteB.destroy()}, 300, spriteB);
-                    this.explosion.play();
-                }
-            });
+            // single laser
+            this.createLaser(this.spaceship.getCenter().x, this.spaceship.getCenter().y-20, 0, this.shootSpeed);
+
+            // dual laser
+            // this.createLaser(this.spaceship.getCenter().x-10, this.spaceship.getCenter().y-20, 0, this.shootSpeed);
+            // this.createLaser(this.spaceship.getCenter().x+10, this.spaceship.getCenter().y-20, 0, this.shootSpeed);
+            
+            // tri-laser
+            if (this.upgraded){ 
+                this.createLaser(this.spaceship.getCenter().x, this.spaceship.getCenter().y-20, this.shootSpeed/2, this.shootSpeed/2, -.78);
+                this.createLaser(this.spaceship.getCenter().x, this.spaceship.getCenter().y-20, -this.shootSpeed/2, this.shootSpeed/2, .78);
+            }
         }
-
     }
 
-    private createGameboyAnimations(){
-        this.anims.create({
-            key: 'gameboy-idle',
-            frames: [{key:'gameboy', frame: 'platformChar_walk0.png'}]
+    createLaser(x: number, y: number, xSpeed: number, ySpeed:number, radians:number = 0){
+        const laser = this.matter.add.sprite(x, y, 'space', 'Lasers/laserBlue01.png', {
+            isSensor: true
         });
+        this.laser.play();
+        laser.setFrictionAir(0.0);
+        laser.setVelocityY(ySpeed);
+        laser.setVelocityX(xSpeed);
+        laser.setRotation(radians);
+        laser.setData('type', 'laser');
+        laser.setOnCollide((data: MatterJS.ICollisionPair) => {
 
-        this.anims.create({
-            key: 'gameboy-walk',
-            frameRate: 5,
-            frames: this.anims.generateFrameNames('gameboy', {
-                start: 0,
-                end: 2,
-                prefix: 'platformChar_walk',
-                suffix: '.png'
-            } ),
-            repeat:-1
+            const spriteA = (data.bodyA as MatterJS.BodyType).gameObject as Phaser.Physics.Matter.Sprite
+            const spriteB = (data.bodyB as MatterJS.BodyType).gameObject as Phaser.Physics.Matter.Sprite
+
+            if (!spriteA?.getData || !spriteB?.getData)
+                return;
+            
+            if (spriteA?.getData('type') == 'enemy') {
+                console.log('collided with enemy');
+                spriteA.play('enemy-explode');
+                spriteB.destroy();
+                setTimeout((spriteA) => {spriteA.destroy()}, 300, spriteA);
+                this.explosion.play();
+                this.cameras.main.flash(250);
+                events.emit('enemy-killed');
+            }
+            if (spriteB?.getData('type') == 'enemy') {
+                console.log('collided with enemy');
+                spriteB.play('enemy-explode');
+                spriteA.destroy();
+                setTimeout((spriteB) => {spriteB.destroy()}, 300, spriteB);
+                this.explosion.play();
+                this.cameras.main.flash(250);
+                events.emit('enemy-killed');
+            }
         });
+        
+        // destroy laser object after 500ms, otherwise lasers stay in memory and slow down the game
+        setTimeout((laser) => laser.destroy(), 500, laser);   
     }
 
-    private createZombieAnimations(){
-        this.anims.create({
-            key: 'zombie-idle',
-            frames: [{key:'zombie', frame: 'zombie_idle.png'}]
-        });
 
+    private createSpaceshipAnimations(){
         this.anims.create({
-            key: 'zombie-hurt',
-            frameRate: 10,
-            frames: [{key:'zombie', frame: 'zombie_slide.png'}, {key:'zombie', frame: 'zombie_duck.png'}],
-            repeat:-1
+            key: 'spaceship-idle',
+            frames: [{key:'space', frame: 'playerShip1_blue.png'}]
         });
-
         this.anims.create({
-            key: 'zombie-walk',
-            frameRate: 5,
-            frames: this.anims.generateFrameNames('zombie', {
+            key: 'spaceship-explode',
+            frameRate: 30,
+            frames: this.anims.generateFrameNames('explosion', {
                 start: 1,
-                end: 2,
-                prefix: 'zombie_walk',
+                end: 16,
+                prefix: 'explosion',
                 suffix: '.png'
             } ),
             repeat:-1
+        });
+    }
+
+    private createEnemyAnimations(){
+        this.anims.create({
+            key: 'enemy-idle',
+            frames: [{key:'space', frame: 'Enemies/enemyBlack1.png'}]
+        });
+
+        this.anims.create({
+            key: 'enemy-explode',
+            frameRate: 15,
+            frames: this.anims.generateFrameNames('explosion', {
+                start: 1,
+                end: 16,
+                prefix: 'explosion',
+                suffix: '.png'
+            } ),
+            repeat:1
         });
     }
 }

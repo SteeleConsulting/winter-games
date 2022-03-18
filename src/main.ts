@@ -5,8 +5,8 @@ import UI from "./scenes/ui";
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: 1600,
+    height: 1000,
     physics: {
         default: 'matter',
         matter: {
@@ -16,10 +16,7 @@ const config: Phaser.Types.Core.GameConfig = {
             }
         }
     },
-    audio: {
-        disableWebAudio: true
-    },
-    scene: [Game, UI]
+    scene: [Game, UI]   // this is the list of scenes to be used in the game, only the first scene is auto launched
 };
 
 
