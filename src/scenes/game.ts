@@ -5,7 +5,6 @@ export default class Game extends Phaser.Scene {
 
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private spaceship?: Phaser.Physics.Matter.Sprite;
-    private isTouchingGround: boolean = false;
     private upgraded: boolean = false;
 
     private speed = 5;
@@ -81,16 +80,6 @@ export default class Game extends Phaser.Scene {
                         const spriteA = (data.bodyA as MatterJS.BodyType).gameObject as Phaser.Physics.Matter.Sprite
                         const spriteB = (data.bodyB as MatterJS.BodyType).gameObject as Phaser.Physics.Matter.Sprite
 
-                        if ((data.bodyA as MatterJS.BodyType).gameObject instanceof Phaser.Physics.Matter.TileBody){
-                            console.log('touching tile');
-                            this.isTouchingGround = true;
-                            this.scrollSpeed = 0;
-                            this.spaceship?.play('spaceship-explode');
-                            setTimeout((spaceship) => spaceship.destroy(), 100, this.spaceship);
-                            events.emit('gameover');
-                            this.scene.pause();
-                            return;
-                        }
                         if (!spriteA?.getData || !spriteB?.getData)
                             return;
                         if (spriteA?.getData('type') == 'asteroid') {
