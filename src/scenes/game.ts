@@ -14,9 +14,10 @@ export default class Game extends Phaser.Scene {
     private shootSpeed = -15;
     private scrollSpeed = -1;
 
-    private laser!: Phaser.Sound.BaseSound;
-    private explosion!:  Phaser.Sound.BaseSound;
-    private powerup!: Phaser.Sound.BaseSound;
+    private laserSound!: Phaser.Sound.BaseSound;
+    private explosionSound!:  Phaser.Sound.BaseSound;
+    private powerupSound!: Phaser.Sound.BaseSound;
+    private backgroundMusic!: Phaser.Sound.BaseSound;
 
     constructor() {
         super('game');
@@ -24,22 +25,28 @@ export default class Game extends Phaser.Scene {
 
     init() {
 		this.cursors = this.input.keyboard.createCursorKeys();  // setup keyboard input
-        this.scene.launch('ui');   // add the UI scene
+
+        // load the other scenes
+        this.scene.launch('ui');
+        this.scene.launch('gameover');
     }
 
     preload(){
         this.load.image('star', 'assets/star2.png');
+        this.load.image('boss', 'assets/boss.png');
         this.load.atlas('explosion', 'assets/explosion.png', 'assets/explosion.json');
 
         //this loads a whole tileset, check assets/space-shooter/space-shooter-tileset.json for individual image names
         this.load.atlas('space', 'assets/space-shooter/space-shooter-tileset.png', 'assets/space-shooter/space-shooter-tileset.json');  
-
-        this.load.image('world', 'assets/platformPack_tilesheet.png');
-        this.load.tilemapTiledJSON('worldmap', 'assets/world.json');
+        
+        // this file has the start locations of all objects in the game
+        this.load.tilemapTiledJSON('spacemap', 'assets/space-shooter-tilemap.json');
 
         this.load.audio('laser', ['assets/sounds/laser.wav']);
         this.load.audio('explosion', ['assets/sounds/explosion.mp3']);
         this.load.audio('powerup', ['assets/sounds/powerup.wav']);
+        this.load.audio('pulsar', ['assets/sounds/pulsar-office.mp3']);
+
 
     }
 
@@ -47,68 +54,86 @@ export default class Game extends Phaser.Scene {
         const { width, height } = this.scale;  // width and height of the scene
 
         // Add random stars background
-        var bg = this.add.group({ key: 'star', frameQuantity: 300  });
-        var rect = new Phaser.Geom.Rectangle(0, -4 * height, width, 5 * height);
+        var bg = this.add.group({ key: 'star', frameQuantity: 3000  });
+        var rect = new Phaser.Geom.Rectangle(0, 0, width, 6200);
         Phaser.Actions.RandomRectangle(bg.getChildren(), rect);
 
         this.createSpaceshipAnimations();
         this.createEnemyAnimations();
 
-        
-        const map = this.make.tilemap({key: 'worldmap'});
-        const tileset = map.addTilesetImage('platformPack_tilesheet', 'world');
-        
-        const ground = map.createLayer('ground', tileset);
-        ground.setCollisionByProperty({collides: true});
-        
-        this.matter.world.convertTilemapLayer(ground);
-        
+        const map = this.make.tilemap({key: 'spacemap'});
         const objectsLayer = map.getObjectLayer('objects');
-        this.cameras.main.scrollY = 200;
-
         objectsLayer.objects.forEach(obj => {
             const {x=0, y=0, name} = obj;   // get the coordinates and name of the object from the tile map
 
-            // add an enemy at every object in the tile map
-            var enemy = this.matter.add.sprite(x,y,'space').play('enemy-idle');
-            enemy.setFixedRotation();
-            enemy.setData('type', 'enemy');
-            setInterval(() => {if (enemy != null && enemy.active){enemy.setVelocityX(Math.random()>0.5?5:-5);enemy.setVelocityY(Math.random()>0.5?5:-5);}}, 200, enemy); // random movement of enemies
 
             // find where the spawn and gem objects are in the tile map and add sprites accordingly 
             switch(name){
                 case 'spawn':
+                    this.cameras.main.scrollY = y-800;   // set camera to spaceship Y coordinates
                     this.spaceship = this.matter.add.sprite(x, y, 'space')
                         .play('spaceship-idle')
                         .setFixedRotation();
                     this.spaceship.setFrictionStatic(0);
 
+                    // configure collision detection
                     this.spaceship.setOnCollide((data: MatterJS.ICollisionPair) => {
                         const spriteA = (data.bodyA as MatterJS.BodyType).gameObject as Phaser.Physics.Matter.Sprite
                         const spriteB = (data.bodyB as MatterJS.BodyType).gameObject as Phaser.Physics.Matter.Sprite
 
-                        if (!spriteA?.getData || !spriteB?.getData)
-                            return;
                         if ((data.bodyA as MatterJS.BodyType).gameObject instanceof Phaser.Physics.Matter.TileBody){
                             console.log('touching tile');
                             this.isTouchingGround = true;
                             this.scrollSpeed = 0;
                             this.spaceship?.play('spaceship-explode');
+                            setTimeout((spaceship) => spaceship.destroy(), 100, this.spaceship);
+                            events.emit('gameover');
+                            this.scene.pause();
                             return;
                         }
-                        if (spriteA?.getData('type') == 'gem') {
-                            console.log('collided with gem');
-                            events.emit('gem-collided');
+                        if (!spriteA?.getData || !spriteB?.getData)
+                            return;
+                        if (spriteA?.getData('type') == 'asteroid') {
+                            this.scrollSpeed = 0;
+                            this.spaceship?.play('spaceship-explode');
+                            setTimeout((spaceship) => spaceship.destroy(), 100, this.spaceship);
+                            events.emit('gameover');
+                            this.scene.pause();
+                            return;
+                        }
+                        if (spriteB?.getData('type') == 'asteroid') {
+                            this.scrollSpeed = 0;
+                            this.spaceship?.play('spaceship-explode');
+                            setTimeout((spaceship) => spaceship.destroy(), 100, this.spaceship);
+                            events.emit('gameover');
+                            this.scene.pause();
+                            return;
+                        }
+                        if (spriteA?.getData('type') == 'powerup') {
+                            console.log('collided with powerup');
+                            events.emit('powerup-collided');
                             spriteA.destroy();
-                            this.powerup.play();
+                            this.powerupSound.play();
                             this.upgraded = true;
                         }
-                        if (spriteB?.getData('type') == 'gem') {
-                            console.log('collided with gem');
-                            events.emit('gem-collided'); 
+                        if (spriteB?.getData('type') == 'powerup') {
+                            console.log('collided with powerup');
+                            events.emit('powerup-collided'); 
                             spriteB.destroy();
-                            this.powerup.play();
+                            this.powerupSound.play();
                             this.upgraded = true;
+                        }
+                        if (spriteA?.getData('type') == 'speedup') {
+                            console.log('collided with speedup');
+                            spriteA.destroy();
+                            this.powerupSound.play();
+                            this.speed += 2;
+                        }
+                        if (spriteB?.getData('type') == 'speedup') {
+                            console.log('collided with speedup');
+                            spriteB.destroy();
+                            this.powerupSound.play();
+                            this.speed += 2;
                         }
                         if (spriteB?.getData('type') == 'enemy' || spriteA?.getData('type') == 'enemy') {
                             console.log('taking damage');
@@ -119,30 +144,64 @@ export default class Game extends Phaser.Scene {
                         
                     });
                     break;
-                case 'gem':
-                    const gem = this.matter.add.sprite(x, y, 'space', 'Power-ups/powerupBlue_bolt.png', {
+                case 'powerup':
+                    const powerup = this.matter.add.sprite(x, y, 'space', 'Power-ups/powerupBlue_star.png', {
                         isStatic: true,
                         isSensor: true
                     });
-                    gem.setIgnoreGravity(true);
-                    gem.setBounce(1);
-                    gem.setData('type', 'gem');
+                    powerup.setIgnoreGravity(true);
+                    powerup.setBounce(1);
+                    powerup.setData('type', 'powerup');
+                    break;
+
+                case 'speedup':
+                    const speedup = this.matter.add.sprite(x, y, 'space', 'Power-ups/bolt_gold.png', {
+                        isStatic: true,
+                        isSensor: true
+                    });
+                    speedup.setIgnoreGravity(true);
+                    speedup.setBounce(1);
+                    speedup.setData('type', 'speedup');
+                    break;
+                case 'enemy':
+                    // add an enemy at every object in the tile map
+                    var enemy = this.matter.add.sprite(x,y,'space').play('enemy-idle');
+                    enemy.setFixedRotation();
+                    enemy.setData('type', 'enemy');
+                     // random movement of enemies
+                    setInterval(() => {if (enemy != null && enemy.active){enemy.setVelocityX(Math.random()>0.5?5:-5);enemy.setVelocityY(Math.random()>0.5?5:-5);}}, 200, enemy);
+                    break;
+                case 'boss':
+                    var boss = this.matter.add.sprite(x,y,'boss');
+                    boss.setFixedRotation();
+                    boss.setData('type', 'boss');
+                    break;
+                
+                case 'asteroid':
+                    var asteroid = this.matter.add.sprite(x,y,'space', 'Meteors/meteorGrey_big1.png');
+                    asteroid.setVelocity((Math.random()*4)-2,(Math.random()*4)-2);
+                    asteroid.setData('type', 'asteroid');
                     break;
             }
         });
 
         // Sounds are loaded into memory here
-        this.powerup = this.sound.add('powerup');
-        this.explosion = this.sound.add('explosion');
-        this.laser = this.sound.add('laser'); 
+        this.powerupSound = this.sound.add('powerup');
+        this.explosionSound = this.sound.add('explosion');
+        this.laserSound = this.sound.add('laser'); 
+        this.backgroundMusic = this.sound.add('pulsar');
 
         this.cameras.main.fadeIn(2000);   // just a nice intro effect
     }
 
     update(){
-        if (!this.spaceship)   // This checks if the spaceship has been created yet
+        if (!this.spaceship?.active)   // This checks if the spaceship has been created yet
             return;
-
+        
+        // play background music
+        if (!this.backgroundMusic.isPlaying)
+            this.backgroundMusic.play();
+            
         // move camera up
         this.cameras.main.scrollY += this.scrollSpeed;
 
@@ -204,10 +263,9 @@ export default class Game extends Phaser.Scene {
     }
 
     createLaser(x: number, y: number, xSpeed: number, ySpeed:number, radians:number = 0){
-        const laser = this.matter.add.sprite(x, y, 'space', 'Lasers/laserBlue01.png', {
-            isSensor: true
-        });
-        this.laser.play();
+        const laser = (this.upgraded) ? this.matter.add.sprite(x, y, 'space', 'Lasers/laserGreen08.png', { isSensor: true }):
+                                        this.matter.add.sprite(x, y, 'space', 'Lasers/laserBlue01.png', { isSensor: true });
+        this.laserSound.play();
         laser.setFrictionAir(0.0);
         laser.setVelocityY(ySpeed);
         laser.setVelocityX(xSpeed);
@@ -226,7 +284,7 @@ export default class Game extends Phaser.Scene {
                 spriteA.play('enemy-explode');
                 spriteB.destroy();
                 setTimeout((spriteA) => {spriteA.destroy()}, 300, spriteA);
-                this.explosion.play();
+                this.explosionSound.play();
                 this.cameras.main.flash(250);
                 events.emit('enemy-killed');
             }
@@ -235,7 +293,7 @@ export default class Game extends Phaser.Scene {
                 spriteB.play('enemy-explode');
                 spriteA.destroy();
                 setTimeout((spriteB) => {spriteB.destroy()}, 300, spriteB);
-                this.explosion.play();
+                this.explosionSound.play();
                 this.cameras.main.flash(250);
                 events.emit('enemy-killed');
             }
@@ -260,7 +318,7 @@ export default class Game extends Phaser.Scene {
                 prefix: 'explosion',
                 suffix: '.png'
             } ),
-            repeat:-1
+            repeat:1
         });
     }
 
