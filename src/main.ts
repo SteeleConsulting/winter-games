@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import Game from "./scenes/game";
 import UI from "./scenes/ui";
 import GameOver from "./scenes/gameover"
-import Intro from './scenes/intro'
 
 
 const config: Phaser.Types.Core.GameConfig = {
