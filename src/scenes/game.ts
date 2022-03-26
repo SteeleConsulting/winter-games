@@ -9,7 +9,7 @@ export default class Game extends Phaser.Scene {
 
     private speed = 5;
     private normalSpeed = 5;
-    private turboSpeed = 10;  //Hello Wolrd
+    private turboSpeed = 10;
     private shootSpeed = -15;
     private scrollSpeed = -1;
 
@@ -72,7 +72,7 @@ export default class Game extends Phaser.Scene {
                     this.cameras.main.scrollY = y-800;   // set camera to spaceship Y coordinates
                     this.spaceship = this.matter.add.sprite(x, y, 'space')
                         .play('spaceship-idle');
-
+                    this.spaceship.setFixedRotation();
                     // configure collision detection
                     this.spaceship.setOnCollide((data: MatterJS.ICollisionPair) => {
                         const spriteA = (data.bodyA as MatterJS.BodyType).gameObject as Phaser.Physics.Matter.Sprite
@@ -98,6 +98,9 @@ export default class Game extends Phaser.Scene {
                     });
                     speedup.setBounce(1);
                     speedup.setData('type', 'speedup');
+                    break;
+                case 'enemy':
+                    const enemy = this.matter.add.sprite(x, y, 'space', 'Enemies/enemyBlack1.png');
                     break;
             }
         });
@@ -129,19 +132,31 @@ export default class Game extends Phaser.Scene {
             if (this.spaceship.x > 1550) this.spaceship.setX(1550);    // right boundry
             this.spaceship.flipX = false;
         }
+        else if (this.cursors.down.isDown) {
+            this.spaceship.setVelocityY(this.speed);
+            this.spaceship.flipY = true;
+        }
+        else if (this.cursors.up.isDown) {
+            this.spaceship.setVelocityY(-this.speed);
+            this.spaceship.flipY = false;
+        }
         else{
             this.spaceship.setVelocityX(0);
+            this.spaceship.setVelocityY(0);
         }
 
         const shiftJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.shift);   // this is to make sure it only happens once per key press
         if(this.cursors.shift.isDown && shiftJustPressed){
             // do something here
+            this.createLaser(this.spaceship.x,this.spaceship.y,0,this.shootSpeed);
+        
         }
     }
 
     // create a laser sprite
     createLaser(x: number, y: number, xSpeed: number, ySpeed:number, radians:number = 0){
         var laser = this.matter.add.sprite(x, y, 'space', 'Lasers/laserGreen08.png', { isSensor: true });
+        laser.setVelocityY(ySpeed)
         this.upgraded;
         laser.setData('type', 'laser');
         laser.setOnCollide((data: MatterJS.ICollisionPair) => {
