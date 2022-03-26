@@ -9,7 +9,7 @@ export default class Game extends Phaser.Scene {
 
     private speed = 5;
     private normalSpeed = 5;
-    private turboSpeed = 10;
+    private turboSpeed = 10;  //Hello Wolrd
     private shootSpeed = -15;
     private scrollSpeed = -1;
 
