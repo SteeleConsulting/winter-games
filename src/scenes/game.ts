@@ -1,3 +1,8 @@
+import Intro from "./intro";
+import Phaser from "phaser"; 
+import UI from "./ui";
+import GameOver from "./gameover";
+
 var Breakout = new Phaser.Class({
 
     Extends: Phaser.Scene,
@@ -20,6 +25,11 @@ var Breakout = new Phaser.Class({
 
     create: function ()
     {
+
+        setTimeout(() => {
+            this.scene.launch('ui');
+        }, 850, this);
+
         //  Enable world bounds, but disable the floor
         this.physics.world.setBoundsCollision(true, true, true, false);
 
@@ -127,10 +137,10 @@ var Breakout = new Phaser.Class({
 
 var config = {
     type: Phaser.WEBGL,
-    width: 800,
-    height: 600,
+    width: 1600,
+    height: 1000,
     parent: 'phaser-example',
-    scene: [ Breakout ],
+    scene: [ Intro, Breakout, UI, GameOver ],
     physics: {
         default: 'arcade'
     }

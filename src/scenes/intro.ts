@@ -19,8 +19,8 @@ export default class Intro extends Phaser.Scene {
         this.cameras.main.fadeIn(2000);
         this.cameras.main.fadeOut(2000);
         setTimeout(() => {
-            this.scene.launch('game');
-        }, 4000, this);
+            this.scene.launch('breakout');
+        }, 3000, this);
     }
 
     update() {
