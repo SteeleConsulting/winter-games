@@ -11,15 +11,15 @@ export default class Intro extends Phaser.Scene {
     }
 
     preload(){
-        this.load.image('logo', './assets/SteeleLogo.svg')
+        this.load.image('logo', 'assets/SteeleLogo.svg')
     }
 
     create(){
-        var logo = this.add.sprite(750, 450, 'logo');
         this.cameras.main.fadeIn(2000);
+        var logo = this.add.sprite(560, 410, 'logo');
         this.cameras.main.fadeOut(2000);
         setTimeout(() => {
-            this.scene.launch('breakout');
+            this.scene.launch('game');
         }, 3000, this);
     }
 

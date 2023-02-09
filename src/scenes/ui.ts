@@ -3,11 +3,10 @@ import { sharedInstance as events } from "../helpers/eventCenter";
 
 export default class UI extends Phaser.Scene {
 
-    private powerupsLabel!: Phaser.GameObjects.Text;
-    private powerupsCollected: number = 0;
+    private livesLabel!: Phaser.GameObjects.Text;
     private scoreLabel!: Phaser.GameObjects.Text;
     private score: number = 0;
-    private health: number = 200;
+    private lives: number = 4;
     private healthBar!: Phaser.GameObjects.Rectangle;
 
     constructor() {
@@ -17,13 +16,12 @@ export default class UI extends Phaser.Scene {
     init() {
     }
 
-    preload(){
-
+    preload() {
     }
 
     create(){
         // create top bar labels and health bar
-        this.powerupsLabel = this.add.text(10, 10, 'PowerUps: 0', {
+        this.livesLabel = this.add.text(10, 10, 'Lives: 4', {
             fontSize: '32px', color: 'yellow'
         });
         this.healthBar = this.add.rectangle(350, 25, 200, 20, 0xff0000);
@@ -31,20 +29,18 @@ export default class UI extends Phaser.Scene {
             fontSize: '32px', color: 'yellow'
         });
 
-        // listen to events coming from the game scene
-        events.on('powerup-collided', () => {
-            this.powerupsCollected++;
-            this.powerupsLabel.text = 'PowerUps: '+this.powerupsCollected;
-            if (this.health < 200) this.health += 20;
-            this.healthBar.setSize(this.health, 20);
-        })
-
-        events.on('enemy-collided', () => {
-            if (this.health > 0) this.health -= 20;
-            this.healthBar.setSize(this.health, 20);
+        events.on('life-lost', () => {
+            if (this.lives > 0) {
+                this.lives -= 1;
+                this.livesLabel.text = 'Lives: '+ this.lives;
+            }
+            if (this.lives == 0){
+                this.scene.remove('game');
+                this.scene.launch('gameover');
+            }
         });
 
-        events.on('enemy-killed', () => {
+        events.on('brick-destroyed', () => {
             this.score += 100;
             this.scoreLabel.text = 'Score: '+ this.score;
         });

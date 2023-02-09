@@ -7,16 +7,10 @@ import Intro from './scenes/intro'
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: 1600,
-    height: 1000,
+    width: 1100,
+    height: 800,
     physics: {
-        default: 'matter',
-        matter: {
-            debug: false,
-            gravity: {
-                y:0
-            }
-        }
+        default: 'arcade'
     },
     scene: [Intro, Game, UI, GameOver]   // this is the list of scenes to be used in the game, only the first scene is auto launched
 };
