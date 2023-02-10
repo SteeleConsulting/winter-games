@@ -1,23 +1,37 @@
-import Phaser from "phaser";
+import Phaser, { GameObjects } from "phaser";
 import { sharedInstance as events } from "../helpers/eventCenter";
 
 export default class Game extends Phaser.Scene {
     private bricks!: Phaser.Physics.Arcade.StaticGroup;
     private paddle!: Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
     private ball!: Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
+    private cursor:any;
+    private paddleSpeed: number = 200;
+    private explosionSound!: Phaser.Sound.BaseSound;
 
     constructor() {
         super('game');
     }
     
     init() {
+        // add keyboard bindings to up, down, left, right, space, shift
+        this.cursor = this.input.keyboard.createCursorKeys();
     }
 
     preload() {
-        this.load.atlasXML('assets', 'assets/breakout/sheet/Breakout_Tiles_Medium.png', 'assets/breakout/sheet/Breakout_Tiles_Medium.xml');
+        // load assets
+        this.load.audio('music', 'assets/sounds/pulsar-office.mp3');
+        this.load.audio('explosion', 'assets/sounds/explosion.mp3');
+        this.load.atlasXML('tiles', 'assets/breakout/sheet/Breakout_Tiles_Medium.png', 'assets/breakout/sheet/Breakout_Tiles_Medium.xml');
+        this.load.atlas('explosion', 'assets/explosion.png', 'assets/explosion.json');
     }
 
     create() {
+        this.createExplosionAnimation();
+
+        // set up sounds
+        this.explosionSound = this.game.sound.add('explosion');
+
         // Add UI layout
         setTimeout(() => {
             this.scene.launch('ui');
@@ -26,57 +40,53 @@ export default class Game extends Phaser.Scene {
         //  Enable world bounds, but disable the floor
         this.physics.world.setBoundsCollision(true, true, true, false);
 
-        //  Create the bricks in a 10x6 grid
+        //  Create the bricks in a 10x2 grid
         this.bricks = this.physics.add.staticGroup({
-            key: 'assets', frame: ['tile-21', 'tile-22', 'tile-23', 'tile-24', 'tile-25'],
+            key: 'tiles', frame: ['tile-21', 'tile-22'],
             frameQuantity: 15,
-            gridAlign: { width: 15, height: 5, cellWidth: 64, cellHeight: 64, x: 112, y: 100 },
-        },);
+            gridAlign: { width: 15, height: 2, cellWidth: 64, cellHeight: 64, x: 100, y: 100 },
+        });
         
-        this.ball = this.physics.add.image(400, 520, 'assets', 'tile-58').setCollideWorldBounds(true).setBounce(1).setScale(0.8);
+        this.ball = this.physics.add.image(400, 520, 'tiles', 'tile-58').setCollideWorldBounds(true).setBounce(1).setScale(0.8);
         this.ball.setData('onPaddle', true);
 
-        this.paddle = this.physics.add.image(400, 550, 'assets', 'tile-49').setImmovable().setScale(0.8);
+        this.paddle = this.physics.add.image(400, 550, 'tiles', 'tile-49').setImmovable().setScale(0.8);
 
-        //  Our colliders
-        this.physics.add.collider(this.ball, this.bricks, this.hitBrick, undefined, this);
+        //  Colliders
         this.physics.add.collider(this.ball, this.paddle, this.hitPaddle, undefined, this);
-
+        
         //  Input events
         this.input.on('pointermove', (pointer) => {
-
-            //  Keep the paddle within the game
-            this.paddle.x = Phaser.Math.Clamp(pointer.x, 52, 1000);
-
+            console.log(pointer.position.x);
             if (this.ball.getData('onPaddle')) {
-                this.ball.x = this.paddle?.x;
             }
-
         }, this);
 
         this.input.on('pointerup', (pointer) => {
-
-            if (this.ball.getData('onPaddle')) {
-                this.ball.setVelocity(-75, -300);
-                this.ball.setData('onPaddle', false);
-            }
-
         }, this);
     }
 
     update() {
+        // ball is past below the paddle
         if (this.ball.y > 600) {
             events.emit('life-lost');
-            this.resetBall();
+        }
+
+        // handle keyboard input
+        if (this.cursor.right.isDown){
+            this.paddle.setVelocityX(this.paddleSpeed);
+        }
+        else if (this.cursor.space.isDown){
+            this.releaseBall();
+        }
+        else {
+            this.paddle.setVelocityX(0);
         }
     }
 
     hitBrick (ball, brick) {
-        events.emit('brick-destroyed');
-        brick.disableBody(true, true);
-
         if (this.bricks?.countActive() === 0) {
-            this.resetLevel();
+            console.log('all bricks cleared');
         }
     }
 
@@ -84,6 +94,11 @@ export default class Game extends Phaser.Scene {
         this.ball.setVelocity(0);
         this.ball.setPosition(this.paddle.x, 510);
         this.ball.setData('onPaddle', true);
+    }
+
+    releaseBall () {
+        this.ball.setVelocity(-75, -300);
+        this.ball.setData('onPaddle', false);
     }
 
     resetLevel () {
@@ -94,21 +109,21 @@ export default class Game extends Phaser.Scene {
     }
 
     hitPaddle(ball, paddle) {
-        var diff = 0;
-        if (ball.x < paddle.x) {
-            //  Ball is on the left-hand side of the paddle
-            diff = paddle.x - ball.x;
-            ball.setVelocityX(-10 * diff);
-        }
-        else if (ball.x > paddle.x) {
-            //  Ball is on the right-hand side of the paddle
-            diff = ball.x -paddle.x;
-            ball.setVelocityX(10 * diff);
-        }
-        else {
-            //  Ball is perfectly in the middle
-            //  Add a little random X to stop it bouncing straight up!
-            ball.setVelocityX(2 + Math.random() * 8);
-        }
+        console.log('collision with paddle');
+    }
+
+    // add explosion animation to the game
+    createExplosionAnimation(){
+        this.anims.create({
+            key: 'enemy-explode',
+            frameRate: 15,
+            frames: this.anims.generateFrameNames('explosion', {
+                start: 1,
+                end: 16,
+                prefix: 'explosion',
+                suffix: '.png'
+            } ),
+            repeat:0
+        });
     }
 }
