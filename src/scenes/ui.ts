@@ -11,23 +11,28 @@ export default class UI extends Phaser.Scene {
     }
 
     init() {
-        this.gemsCollected = 0;
+        // this.gemsCollected = 0;
     }
 
     preload(){
+        this.load.image('back', 'assets/new-assets/skybox_sideHills.png')
 
     }
 
     create(){
-        this.gemsLabel = this.add.text(10, 10, 'Gems: 0', {
-            fontSize: '32px'
-        });
+
+        // this.add.image(0, 0, 'back').setOrigin(0 ,0);
+
+
+        // this.gemsLabel = this.add.text(10, 10, 'Gems: 0', {
+        //     fontSize: '32px'
+        // });
 
         
-        events.on('gem-collided', () => {
-            this.gemsCollected++;
-            this.gemsLabel.text = 'Gems: '+this.gemsCollected;
-        })
+        // events.on('gem-collided', () => {
+        //     this.gemsCollected++;
+        //     this.gemsLabel.text = 'Gems: '+this.gemsCollected;
+        // })
     }
 
     update() {

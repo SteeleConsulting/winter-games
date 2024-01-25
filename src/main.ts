@@ -5,8 +5,8 @@ import UI from "./scenes/ui";
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: 1400,
+    height: 900,
     physics: {
         default: 'matter',
         matter: {
