@@ -5,6 +5,7 @@ export default class Game extends Phaser.Scene {
 
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private gameboy?: Phaser.Physics.Matter.Sprite;
+    private weapon?: Phaser.Physics.Matter.Sprite;
     private isTouchingGround:boolean = false;
 
     constructor() {
@@ -19,10 +20,14 @@ export default class Game extends Phaser.Scene {
     preload(){
         this.load.atlas('gameboy', 'assets/character.png', 'assets/character.json');
         this.load.atlas('zombie', 'assets/characters/zombie.png', 'assets/characters/zombie.json');
-        this.load.image('world', 'assets/platformPack_tilesheet.png');
-        this.load.image('gem', 'assets/items/platformPack_item007.png');
-        this.load.image('fire', 'assets/items/platformPack_item004.png');
-        this.load.tilemapTiledJSON('worldmap', 'assets/world.json');
+        this.load.atlas('items_atlas', 'assets/vortex/spritesheet_items.png', 'assets/vortex/spritesheet_items.json');
+        this.load.image('gem', 'assets/items/platformPack_item017.png');
+        this.load.image('fire', 'assets/items/platformPack_item001.png');
+        this.load.image('background', 'assets/uncolored_piramids.png');
+        this.load.image('world', 'assets/vortex/spritesheet_tiles.png');
+        // this.load.image('items', 'assets/vortex/spritesheet_items.png');
+        this.load.tilemapTiledJSON('worldmap', 'assets/vortex/hackathon-tilemap.json');
+        this.load.spritesheet('items', 'assets/vortex/spritesheet_items.png', {frameWidth: 128, frameHeight: 128,spacing:2});
     }
 
     create(){
@@ -30,12 +35,21 @@ export default class Game extends Phaser.Scene {
         const { width, height } = this.scale;  // width and height of the scene
         this.createGameboyAnimations();
         this.createZombieAnimations();
+        // this.game. 
+        this.matter.add.image(width * 0.5, height * 0.5, 'background').setFixedRotation().setStatic(true);
         
         const map = this.make.tilemap({key: 'worldmap'});
         const tileset = map.addTilesetImage('platformPack_tilesheet', 'world');
+        // const items = map.addTilesetImage('platformPack_items', 'items');
+        // console.log('items',items);
+        
+        console.log('tileset',tileset);
+        console.log('map',map);
+
         
         const ground = map.createLayer('ground', tileset);
         ground.setCollisionByProperty({collides: true});
+        
         
         this.matter.world.convertTilemapLayer(ground);
         
@@ -52,6 +66,13 @@ export default class Game extends Phaser.Scene {
                         .play('gameboy-idle')
                         .setFixedRotation();
 
+                    
+                    this.weapon = this.matter.add.sprite(x, y, 'items', 58, {
+                        isStatic: true,
+                        isSensor: true
+                    });
+                    this.weapon.angle = 40;
+                    this.weapon.scale = 0.5;
                     this.gameboy.setOnCollide((data: MatterJS.ICollisionPair) => {
                         const bodyA = data.bodyA as MatterJS.BodyType;
                         const bodyB = data.bodyB as MatterJS.BodyType;
@@ -104,6 +125,9 @@ export default class Game extends Phaser.Scene {
     update(){
         if (!this.gameboy)
             return;
+        this.weapon!.x = (this.gameboy!.x + (this.gameboy.flipX ? -35 : 35));
+        this.weapon!.y = this.gameboy!. y+10;
+        this.weapon!.angle = this.gameboy.flipX ? 220 : 40
         const speed = 5;
         const jumpSpeed = 10;
         const shootSpeed = 15;
@@ -130,29 +154,35 @@ export default class Game extends Phaser.Scene {
         
         const shiftJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.shift);
         if(this.cursors.shift.isDown && shiftJustPressed){
-            const gem = this.matter.add.sprite(this.gameboy.getCenter().x, this.gameboy.getCenter().y-20, 'fire', undefined, {
+            const projectile = this.matter.add.sprite(this.gameboy.getCenter().x, this.gameboy.getCenter().y+5 , 'items', 10, {
                 isSensor: true
             });
-            gem.setIgnoreGravity(false);
-            gem.setFrictionAir(0.05);
-            gem.setBounce(1);
-            gem.setVelocityX(this.gameboy.flipX? -shootSpeed : shootSpeed);
-            gem.setData('type', 'fire');
-            gem.setOnCollide((data: MatterJS.ICollisionPair) => {
+            projectile.scale = 0.5;
+            projectile.angle = this.gameboy.flipX ? 225 : 45;
+            events.emit('water-shot');
+            projectile.setIgnoreGravity(false);
+            // projectile.setFrictionAir(0.1);
+            projectile.setVelocityY(-1);
+            projectile.setBounce(0);
+            projectile.setVelocityX(this.gameboy.flipX? -shootSpeed : shootSpeed);
+            projectile.setData('type', 'fire');
+            projectile.setOnCollide((data: MatterJS.ICollisionPair) => {
                 const bodyA = data.bodyA as MatterJS.BodyType;
                 const bodyB = data.bodyB as MatterJS.BodyType;
                 const spriteA = bodyA.gameObject as Phaser.Physics.Matter.Sprite
                 const spriteB = bodyB.gameObject as Phaser.Physics.Matter.Sprite
 
-                if (!spriteA.getData || !spriteB.getData)
+                if (!spriteA || !spriteB || !spriteA.getData || !spriteB.getData)
                     return;
                 
                 if (spriteA?.getData('type') == 'zombie') {
                     console.log('collided with zombie');
+                    projectile.destroy();
                     spriteA.destroy();
                 }
                 if (spriteB?.getData('type') == 'zombie') {
                     console.log('collided with zombie');
+                    projectile.destroy();
                     spriteB.destroy();
                 }
             });
