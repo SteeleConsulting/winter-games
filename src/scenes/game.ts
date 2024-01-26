@@ -5,6 +5,7 @@ export default class Game extends Phaser.Scene {
 
 	private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     private gameboy?: Phaser.Physics.Matter.Sprite;
+    private mainChar?: Phaser.Physics.Matter.Sprite;
     private isTouchingGround:boolean = false;
 
     constructor() {
@@ -17,12 +18,14 @@ export default class Game extends Phaser.Scene {
     }
 
     preload(){
-        this.load.atlas('gameboy', 'assets/character.png', 'assets/character.json');
-        this.load.atlas('zombie', 'assets/characters/zombie.png', 'assets/characters/zombie.json');
-        this.load.image('gem', 'assets/items/platformPack_item007.png');
-        this.load.image('fire', 'assets/items/platformPack_item004.png');
+        // this.load.atlas('gameboy', 'assets/character.png', 'assets/character.json');
+        // this.load.atlas('zombie', 'assets/characters/zombie.png', 'assets/characters/zombie.json');
+        // this.load.image('gem', 'assets/items/platformPack_item007.png');
+        // this.load.image('fire', 'assets/items/platformPack_item004.png');
         this.load.image('hedgehog', 'assets/new-assets/hedgehog.png')
         this.load.image('main-char', 'assets/new-assets/main-char.png');
+        this.load.image('skeleton', 'assets/new-assets/skeleton.png');
+        this.load.image('enemy', 'assets/new-assets/enemy.png')
 
         this.load.image('world', 'assets/new-assets/spritesheet_tiles.png');
         this.load.tilemapTiledJSON('worldmap', 'assets/new-assets/new-tile.json');
@@ -92,37 +95,56 @@ export default class Game extends Phaser.Scene {
             // }
         });
 
-        const hedgehog = this.matter.add.sprite(200, 0, 'hedgehog');
-        const mainChar = this.matter.add.sprite(100, 0, 'main-char');
+        const hedgehog = this.matter.add.sprite(300, 0, 'hedgehog');
+        this.mainChar = this.matter.add.sprite(450, 0, 'main-char');
+        const skeleton = this.matter.add.sprite(2000, 0, 'skeleton');
+        const skeleton2 = this.matter.add.sprite(4550, 0, 'skeleton');
+        const enemy = this.matter.add.sprite(850, 0, 'enemy');
+        this.cameras.main.startFollow(this.mainChar);
+
+                    this.mainChar.setOnCollide((data: MatterJS.ICollisionPair) => {
+                        const bodyA = data.bodyA as MatterJS.BodyType;
+                        const gameObjectA = bodyA.gameObject
+
+                        if (!gameObjectA)
+                            return;
+                        if (gameObjectA instanceof Phaser.Physics.Matter.TileBody){
+                            console.log('touching ground')
+                            this.isTouchingGround = true;
+                            return;
+                        }
+                        
+                    });
 
     }
 
     update(){
-        // if (!this.gameboy)
-        //     return;
-        // const speed = 5;
-        // const jumpSpeed = 10;
-        // const shootSpeed = 15;
-        // if (this.cursors.left.isDown){
-        //     this.gameboy.setVelocityX(-speed);
-        //     this.gameboy.flipX = true;
-        //     this.gameboy.play('gameboy-walk', true);
-        // }
-        // else if (this.cursors.right.isDown){
-        //     this.gameboy.setVelocityX(speed);
-        //     this.gameboy.flipX = false;
-        //     this.gameboy.play('gameboy-walk', true);
-        // }
+        if (!this.mainChar)
+            return;
+        const speed = 5;
+        const jumpSpeed = 10;
+        const shootSpeed = 15;
+        if (this.cursors.left.isDown){
+            this.mainChar.setVelocityX(-speed);
+            this.mainChar.flipX = true;
+            // this.gameboy.play('gameboy-walk', true);
+        }
+        else if (this.cursors.right.isDown){
+            this.mainChar.setVelocityX(speed);
+            this.mainChar.flipX = false;
+            // this.gameboy.play('gameboy-walk', true);
+        }
         // else{
         //     this.gameboy.setVelocityX(0);
         //     this.gameboy.play('gameboy-idle', true);
 
         // }
-        // const spaceJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.space);
-        // if (this.cursors.space.isDown && spaceJustPressed && this.isTouchingGround){
-        //     this.gameboy.setVelocityY(-jumpSpeed);
-        //     this.isTouchingGround = false;
-        // }
+        const spaceJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.space);
+        if (this.cursors.space.isDown && spaceJustPressed && this.isTouchingGround){
+            
+            this.mainChar.setVelocityY(-jumpSpeed);
+            this.isTouchingGround = false;
+        }
         
 
     }
