@@ -23,6 +23,7 @@ export default class Game extends Phaser.Scene {
         this.load.image('background', 'assets/vortex/uncolored_piramids.png');
         this.load.image('world', 'assets/vortex/spritesheet_tiles.png');
         this.load.tilemapTiledJSON('worldmap', 'assets/vortex/hackathon-tilemap.json');
+        this.load.audio('chop', 'assets/audio/chop.ogg');
         this.load.spritesheet('items', 'assets/vortex/spritesheet_items.png', {frameWidth: 128, frameHeight: 128,spacing:2});
         this.load.spritesheet('adventurer', 'assets/vortex/adventurer_tilesheet.png', {frameWidth: 80, frameHeight: 110,spacing:0});
         this.load.spritesheet('soldier', 'assets/vortex/soldier_tilesheet.png', {frameWidth: 80, frameHeight: 110,spacing:0});
@@ -30,7 +31,7 @@ export default class Game extends Phaser.Scene {
     }
 
     create(){
-        
+
         const { width, height } = this.scale;  // width and height of the scene
         this.createGameboyAnimations();
         this.createZombieAnimations();
@@ -48,6 +49,8 @@ export default class Game extends Phaser.Scene {
         this.matter.world.convertTilemapLayer(ground);
         const objectsLayer = map.getObjectLayer('objects');
 
+        var chopsound = this.sound.add('chop');
+        
         objectsLayer.objects.forEach(obj => {
             const {x=0, y=0, name} = obj;
 
@@ -117,37 +120,29 @@ export default class Game extends Phaser.Scene {
         const shootSpeed = 15;
         if (this.cursors.left.isDown) {
             this.player.setVelocityX(-speed);
-            this.player.flipX = true;
-            this.player.play('adventurer-walk', true);
         }
-        else if (this.cursors.right.isDown) {
-            this.player.setVelocityX(speed);
-            this.player.flipX = false;
-            this.player.play('adventurer-walk', true);
-        }
-        else {
-            this.player.setVelocityX(0);
-            this.player.play('adventurer-idle', true);
-        }
+
         const spaceJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.space);
         if (this.cursors.space.isDown && spaceJustPressed && this.isTouchingGround){
-            this.player.setVelocityY(-jumpSpeed);
-            this.player.play('adventurer-jump', true);
-            this.isTouchingGround = false;
         }
         
         const shiftJustPressed = Phaser.Input.Keyboard.JustDown(this.cursors.shift);
         if(this.cursors.shift.isDown){
-            this.createProjectile(10, shootSpeed);
+
         }
     }
 
-    private createProjectile(type:number, speed:number){
+    private createProjectileArrow( speed:number){
         if (!this.player)
             return;
-        const projectile = this.matter.add.sprite(this.player.getCenter().x, this.player.getCenter().y + 5, 'items', 10, {
-            isSensor: true
-        });
+        const projectile = this.matter.add.sprite(
+            this.player.getCenter().x, 
+            this.player.getCenter().y + 5, 
+            'items', 
+            10,   // frame from tilesheet 
+            {
+                isSensor: true
+            });
         projectile.scale = 0.5;
         projectile.angle = this.player.flipX ? 225 : 45;
         events.emit('water-shot');
@@ -155,7 +150,7 @@ export default class Game extends Phaser.Scene {
         projectile.setVelocityY(-1);
         projectile.setBounce(0);
         projectile.setVelocityX(this.player.flipX ? -speed : speed);
-        projectile.setData('type', 'fire');
+        projectile.setData('type', 'projectile');
         projectile.setOnCollide((data: MatterJS.ICollisionPair) => {
             const bodyA = data.bodyA as MatterJS.BodyType;
             const bodyB = data.bodyB as MatterJS.BodyType;
@@ -165,17 +160,17 @@ export default class Game extends Phaser.Scene {
             if (!spriteA || !spriteB || !spriteA.getData || !spriteB.getData)
                 return;
 
-            if (spriteA?.getData('type') == 'zombie') {
+            if (spriteA?.getData('type') == 'enemy') {
                 console.log('collided with zombie');
-                projectile.destroy();
-                spriteA.destroy();
             }
-            if (spriteB?.getData('type') == 'zombie') {
+            if (spriteB?.getData('type') == 'enemy') {
                 console.log('collided with zombie');
-                projectile.destroy();
-                spriteB.destroy();
             }
         });
+
+        setTimeout(() => {
+            projectile.destroy();
+        },2000);
     }
 
     private createGameboyAnimations(){
