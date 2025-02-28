@@ -23,7 +23,7 @@ export default class Game extends Phaser.Scene {
     }
 
     init() {
-		this.cursors = this.input.keyboard.createCursorKeys();  // setup keyboard input
+		this.cursors = this.input.keyboard!.createCursorKeys();  // setup keyboard input
 
         // load the other scenes
         this.scene.launch('ui');
@@ -62,7 +62,7 @@ export default class Game extends Phaser.Scene {
         // load tilemap with object locations
         const map = this.make.tilemap({key: 'spacemap'});
         const objectsLayer = map.getObjectLayer('objects');
-        objectsLayer.objects.forEach(obj => {
+        objectsLayer!.objects.forEach(obj => {
             const {x=0, y=0, name} = obj;   // get the coordinates and name of the object from the tile map
             console.log('adding object from tilemap at x:'+x+' y:'+y+' name:'+name);
 
@@ -123,11 +123,6 @@ export default class Game extends Phaser.Scene {
             this.spaceship.setVelocityX(-this.speed);
             if (this.spaceship.x < 50) this.spaceship.setX(50);    // left boundry
             this.spaceship.flipX = true;
-        }
-        else if (this.cursors.right.isDown){
-            this.spaceship.setVelocityX(this.speed);
-            if (this.spaceship.x > 1550) this.spaceship.setX(1550);    // right boundry
-            this.spaceship.flipX = false;
         }
         else{
             this.spaceship.setVelocityX(0);
